@@ -339,38 +339,53 @@
       font-weight: 500;
     }
 
-    /* Token Bar */
+    /* Token Bar — single-line compact */
     .token-bar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
       margin-top: 10px;
-      padding: 8px 10px;
+      padding: 6px 10px;
       background: var(--cp-surface-soft);
-      border-radius: 8px;
-      font-size: 0.7rem;
-    }
-
-    .token-item {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      color: var(--cp-text-muted);
-    }
-
-    .token-item strong {
-      color: var(--cp-text);
-      font-weight: 600;
+      border-radius: 6px;
+      font-size: 0.72rem;
       font-family: Consolas, "Courier New", Courier, monospace;
+      color: var(--cp-text-muted);
     }
 
-    .token-bar-title {
-      color: var(--cp-text-muted);
-      font-weight: 600;
-      font-size: 0.65rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    .token-line {
+      color: var(--cp-text);
+      letter-spacing: 0.01em;
     }
+
+    /* Status-edge accent — replaces loud border with a thin colored left edge */
+    .status-edge-working::before,
+    .status-edge-waiting::before,
+    .status-edge-idle::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      border-radius: 16px 0 0 16px;
+    }
+    .status-edge-working::before { background: var(--cp-success); }
+    .status-edge-waiting::before { background: var(--cp-danger); }
+    .status-edge-idle::before    { background: var(--cp-warning); opacity: 0.6; }
+
+    /* Collapsible activity feed */
+    .card-feed-details {
+      margin-top: 10px;
+    }
+    .card-feed-summary {
+      cursor: pointer;
+      font-size: 0.7rem;
+      color: var(--cp-text-muted);
+      padding: 4px 0;
+      list-style: none;
+      user-select: none;
+    }
+    .card-feed-summary::-webkit-details-marker { display: none; }
+    .card-feed-summary:hover { color: var(--cp-accent); }
+    .card-feed-details[open] .card-feed-summary { color: var(--cp-text); }
 
     /* Card Footer */
     .card-footer {
@@ -836,12 +851,27 @@
         const ctxPercent = ctx ? ctx.percent : 0;
         const ctxColor = ctxPercent > 85 ? "var(--cp-danger)" : ctxPercent > 60 ? "var(--cp-warning)" : "var(--cp-success)";
 
+        // Single-line token summary with emojis
+        const tokenSummary = totalSessionTokens > 0
+          ? `↗️ <strong>${formatTokens(tok.input||0)}</strong> in · ↙️ <strong>${formatTokens(tok.output||0)}</strong> out · 📖 <strong>${formatTokens(tok.cache_read||0)}</strong> cached`
+          : "";
+
+        // Footer: turns · age · last activity
+        const ageBit = s.session_age_label ? `🕒 ${s.session_age_label} open` : "";
+        const lastBit = s.status === "working" ? "⚡ Active now"
+                      : s.status === "waiting" ? "🔔 Waiting for you"
+                      : "Last: " + timeAgo(s.last_activity);
+
+        // Preserve expanded state of the activity feed across the 5s auto-refresh
+        const isOpen = expandedFeeds.has(s.session_id) ? "open" : "";
+
         return `
-        <div class="session-card" data-pid="${s.pid}" data-cwd="${escHtml(s.cwd)}" data-sid="${s.session_id}" data-name="${escHtml(s.name)}">
+        <div class="session-card status-edge-${s.status}" data-pid="${s.pid ?? ''}" data-cwd="${escHtml(s.cwd)}" data-sid="${s.session_id}" data-name="${escHtml(s.name)}">
           ${ctx ? `<div class="context-bar" title="Context: ${ctx.percent}% (${formatTokens(ctx.used)} / ${formatTokens(ctx.max)})">
-            <div class="context-bar-fill" style="width: ${ctxPercent}%; background: ${ctxColor};"></div>
+            <div class="context-bar-fill" style="width: ${Math.min(ctxPercent, 100)}%; background: ${ctxColor};"></div>
           </div>
           <div class="context-bar-label">${ctx.percent}% CTX</div>` : ""}
+
           <div class="card-header">
             <div class="session-name">${escHtml(s.name)}</div>
             <div class="status-badge status-${s.status}">
@@ -857,43 +887,34 @@
               <span class="meta-label">📁</span>
               <span class="meta-value path" title="${escHtml(s.cwd)}">${escHtml(shortenPath(s.cwd))}</span>
             </div>
-            ${s.repository ? `<div class="meta-row"><span class="meta-label">📦</span><span class="repo-badge">${escHtml(s.repository)}${s.branch ? " @ " + escHtml(s.branch) : ""}</span></div>` : ""}
-            <div class="meta-row">
-              <span class="meta-label">🆔</span>
-              <span class="meta-value">${s.session_id.substring(0, 8)}… (PID ${s.pid})</span>
-            </div>
+            ${s.branch ? `<div class="meta-row"><span class="meta-label">🌿</span><span class="repo-badge">${s.repository ? escHtml(s.repository) + " @ " : ""}${escHtml(s.branch)}</span></div>` : ""}
+            ${s.pid ? `<div class="meta-row"><span class="meta-label">🆔</span><span class="meta-value">${s.session_id.substring(0, 8)}… · PID ${s.pid}</span></div>` : ""}
           </div>
 
-          ${totalSessionTokens > 0 ? `
-          <div class="token-bar">
-            <span class="token-bar-title">Tokens</span>
-            <span class="token-item">↗️ <strong>${formatTokens(tok.input||0)}</strong> in</span>
-            <span class="token-item">↙️ <strong>${formatTokens(tok.output||0)}</strong> out</span>
-            <span class="token-item">📖 <strong>${formatTokens(tok.cache_read||0)}</strong> cached</span>
-          </div>` : ""}
+          ${tokenSummary ? `<div class="token-bar"><span class="token-line">${tokenSummary}</span></div>` : ""}
 
           ${feed.length > 0 ? `
-          <div class="card-feed">
-            <div class="card-feed-title">⚡ Recent Activity</div>
-            ${feed.slice(0, 8).map(e => {
-              const icon = e.type === "tools" ? "🔧" : e.type === "turn_complete" ? "✅" : e.type === "intent" ? "🎯" : "📝";
-              return `<div class="feed-item"><span class="feed-item-time">${formatTime(e.time)}</span> <span class="feed-icon">${icon}</span>${escHtml(e.message)}</div>`;
-            }).join("")}
-          </div>` : ""}
+          <details class="card-feed-details" data-sid="${s.session_id}" ${isOpen}>
+            <summary class="card-feed-summary">⚡ ${feed.length} recent event${feed.length === 1 ? "" : "s"} ▾</summary>
+            <div class="card-feed">
+              ${feed.slice(0, 8).map(e => {
+                const icon = e.type === "tools" ? "🔧" : e.type === "turn_complete" ? "✅" : e.type === "intent" ? "🎯" : e.type === "user_message" ? "📝" : "📝";
+                return `<div class="feed-item"><span class="feed-item-time">${formatTime(e.time)}</span> <span class="feed-icon">${icon}</span>${escHtml(e.message)}</div>`;
+              }).join("")}
+            </div>
+          </details>` : ""}
 
           <div class="card-footer">
             <div class="footer-stats">
-              <div class="footer-stat">💬 <strong>${s.turn_count}</strong> turns</div>
-              ${s.checkpoint_count > 0 ? `<div class="footer-stat">📍 <strong>${s.checkpoint_count}</strong> checkpts</div>` : ""}
+              <span class="footer-stat">💬 <strong>${s.turn_count}</strong> turns</span>
+              ${ageBit ? `<span class="footer-stat">${ageBit}</span>` : ""}
             </div>
-            <div class="time-ago">
-              ${s.status === "working" ? "⚡ Active now" : s.status === "waiting" ? "🔔 Waiting for you" : "Last: " + timeAgo(s.last_activity)}
-            </div>
+            <div class="time-ago">${lastBit}</div>
           </div>
 
           ${s.checkpoints && s.checkpoints.length > 0 ? `
           <div class="checkpoints-toggle" data-action="checkpoints" data-sid="${s.session_id}">
-            📍 View ${s.checkpoints.length} checkpoint(s) ▾
+            📍 ${s.checkpoints.length} checkpoint(s) ▾
           </div>
           <div class="checkpoints-list" id="cp-${s.session_id}">
             ${s.checkpoints.map(cp => `
@@ -908,13 +929,22 @@
           </div>` : ""}
 
           <div class="quick-actions">
-            <button class="action-btn" data-action="focus">🖥️ Focus</button>
+            ${s.pid ? `<button class="action-btn" data-action="focus">🖥️ Focus</button>` : ""}
             <button class="action-btn" data-action="open-folder">📂 Open Folder</button>
             <button class="action-btn" data-action="copy-id">📋 Copy ID</button>
-            <button class="action-btn danger" data-action="kill">⛔ Kill</button>
+            ${s.pid ? `<button class="action-btn danger" data-action="kill">⛔ Kill</button>` : ""}
           </div>
         </div>`;
       }).join("");
+
+      // Track activity-feed expand/collapse so refreshes preserve the open state
+      container.querySelectorAll(".card-feed-details").forEach(el => {
+        el.addEventListener("toggle", () => {
+          const sid = el.dataset.sid;
+          if (el.open) expandedFeeds.add(sid);
+          else expandedFeeds.delete(sid);
+        });
+      });
 
       // Attach event listeners via delegation
       container.querySelectorAll("[data-action]").forEach(el => {
@@ -936,6 +966,10 @@
     }
 
     // ===== Token Time-Series Chart =====
+    // Tracks which session cards have their activity-feed <details> expanded,
+    // so the 5s auto-refresh doesn't reset the open state when it re-renders.
+    const expandedFeeds = new Set();
+
     const chartSeries = [
       { key: "total", label: "Total", color: "#fd8ea1", active: true },
       { key: "input", label: "Input", color: "#4da6ff", active: true },
