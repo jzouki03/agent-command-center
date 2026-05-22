@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Command Center</title>
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("clawpilotTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --cp-bg: #f7f4ef;
+      --cp-bg-elevated: #fcfbf8;
+      --cp-surface: #ffffff;
+      --cp-surface-soft: #f5f5f5;
+      --cp-border: #dedede;
+      --cp-border-strong: #919191;
+      --cp-text: #242424;
+      --cp-text-muted: #5c5c5c;
+      --cp-text-soft: #6f6f6f;
+      --cp-accent: #b11f4b;
+      --cp-accent-hover: #9a1a41;
+      --cp-accent-soft: rgba(177, 31, 75, 0.08);
+      --cp-accent-fg: #ffffff;
+      --cp-success: #16a34a;
+      --cp-danger: #dc2626;
+      --cp-warning: #f59e0b;
+      --cp-link: #0078d4;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+      --cp-overlay: rgba(255, 255, 255, 0.8);
+      --cp-panel: rgba(255, 255, 255, 0.86);
+      --cp-panel-strong: rgba(255, 255, 255, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.55);
+      --cp-highlight: rgba(177, 31, 75, 0.12);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --cp-bg: #3d3b3a;
+      --cp-bg-elevated: #343231;
+      --cp-surface: #292929;
+      --cp-surface-soft: #2e2e2e;
+      --cp-border: #474747;
+      --cp-border-strong: #5f5f5f;
+      --cp-text: #dedede;
+      --cp-text-muted: #919191;
+      --cp-text-soft: #b0b0b0;
+      --cp-accent: #fd8ea1;
+      --cp-accent-hover: #fb7b91;
+      --cp-accent-soft: rgba(253, 142, 161, 0.14);
+      --cp-accent-fg: #1a1a1a;
+      --cp-success: #4ade80;
+      --cp-danger: #f87171;
+      --cp-warning: #fbbf24;
+      --cp-link: #4da6ff;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --cp-overlay: rgba(41, 41, 41, 0.88);
+      --cp-panel: rgba(41, 41, 41, 0.72);
+      --cp-panel-strong: rgba(41, 41, 41, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.04);
+      --cp-highlight: rgba(253, 142, 161, 0.12);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--cp-bg);
+      color: var(--cp-text);
+      font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .layout {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--cp-border);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--cp-text);
+    }
+
+    .header .subtitle {
+      font-size: 0.875rem;
+      color: var(--cp-text-muted);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .refresh-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--cp-text-soft);
+    }
+
+    .refresh-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cp-success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .stats-bar {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 16px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--cp-surface);
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+    }
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--cp-accent);
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--cp-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Session Cards */
+    .main-panel { display: flex; flex-direction: column; gap: 16px; }
+
+    .sessions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+      gap: 16px;
+    }
+
+    .session-card {
+      background: var(--cp-surface);
+      border: 1px solid var(--cp-border);
+      border-radius: 16px;
+      padding: 20px;
+      padding-top: 24px;
+      box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .session-card:hover {
+      border-color: var(--cp-accent);
+      box-shadow: 0 0 0 1px var(--cp-accent-soft), 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    /* Context Window Health Bar */
+    .context-bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      right: 0;
+      height: 5px;
+      background: var(--cp-surface-soft);
+      border-radius: 16px 16px 0 0;
+      overflow: hidden;
+    }
+
+    .context-bar-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      transition: width 0.6s ease, background 0.3s;
+      border-radius: 16px 0 0 0;
+    }
+
+    .context-bar-label {
+      position: absolute;
+      right: 12px;
+      top: 8px;
+      font-size: 0.6rem;
+      font-weight: 700;
+      color: var(--cp-text-muted);
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+
+    .session-card:hover .context-bar-label { opacity: 1; }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .session-name {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--cp-text);
+      line-height: 1.3;
+      flex: 1;
+      margin-right: 12px;
+    }
+
+    .intent-line {
+      font-size: 0.8rem;
+      color: var(--cp-accent);
+      font-style: italic;
+      margin-bottom: 10px;
+      padding: 4px 8px;
+      background: var(--cp-accent-soft);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .status-working {
+      background: rgba(22, 163, 74, 0.12);
+      color: var(--cp-success);
+    }
+
+    .status-idle {
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--cp-warning);
+    }
+
+    .status-waiting {
+      background: rgba(0, 120, 212, 0.12);
+      color: var(--cp-link);
+    }
+
+    .status-unknown {
+      background: var(--cp-surface-soft);
+      color: var(--cp-text-muted);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .status-working .status-dot { animation: pulse 1.5s infinite; }
+    .status-waiting .status-dot { animation: pulse 1s infinite; }
+
+    .card-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+    }
+
+    .meta-label { color: var(--cp-text-muted); min-width: 20px; text-align: center; }
+
+    .meta-value {
+      color: var(--cp-text-soft);
+      font-family: Consolas, "Courier New", Courier, monospace;
+      font-size: 0.75rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meta-value.path { max-width: 320px; }
+
+    .repo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: var(--cp-accent-soft);
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: var(--cp-accent);
+      font-weight: 500;
+    }
+
+    /* Token Bar */
+    .token-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 10px;
+      padding: 8px 10px;
+      background: var(--cp-surface-soft);
+      border-radius: 8px;
+      font-size: 0.7rem;
+    }
+
+    .token-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--cp-text-muted);
+    }
+
+    .token-item strong {
+      color: var(--cp-text);
+      font-weight: 600;
+      font-family: Consolas, "Courier New", Courier, monospace;
+    }
+
+    .token-bar-title {
+      color: var(--cp-text-muted);
+      font-weight: 600;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Card Footer */
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--cp-border);
+    }
+
+    .footer-stats {
+      display: flex;
+      gap: 16px;
+    }
+
+    .footer-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      color: var(--cp-text-muted);
+    }
+
+    .footer-stat strong { color: var(--cp-text); font-weight: 600; }
+
+    .time-ago { font-size: 0.7rem; color: var(--cp-text-muted); }
+
+    /* Quick Actions */
+    .quick-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .action-btn {
+      padding: 4px 10px;
+      border: 1px solid var(--cp-border);
+      border-radius: 6px;
+      background: var(--cp-surface);
+      color: var(--cp-text-muted);
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .action-btn:hover {
+      border-color: var(--cp-accent);
+      color: var(--cp-accent);
+      background: var(--cp-accent-soft);
+    }
+
+    .action-btn.danger:hover {
+      border-color: var(--cp-danger);
+      color: var(--cp-danger);
+      background: rgba(220, 38, 38, 0.08);
+    }
+
+    /* Checkpoints expandable */
+    .checkpoints-toggle {
+      font-size: 0.7rem;
+      color: var(--cp-link);
+      cursor: pointer;
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .checkpoints-toggle:hover { text-decoration: underline; }
+
+    .checkpoints-list {
+      display: none;
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: var(--cp-surface-soft);
+      border-radius: 8px;
+      font-size: 0.75rem;
+    }
+
+    .checkpoints-list.open { display: block; }
+
+    .checkpoint-item {
+      padding: 4px 0;
+      border-bottom: 1px solid var(--cp-border);
+      display: flex;
+      gap: 8px;
+    }
+
+    .checkpoint-item:last-child { border-bottom: none; }
+
+    .checkpoint-num {
+      color: var(--cp-accent);
+      font-weight: 700;
+      min-width: 20px;
+    }
+
+    .checkpoint-title { color: var(--cp-text); font-weight: 500; }
+    .checkpoint-overview { color: var(--cp-text-muted); font-size: 0.7rem; margin-top: 2px; }
+
+    /* Activity Feed - Per Card */
+    .card-feed {
+      margin-top: 10px;
+      padding: 8px 10px;
+      background: var(--cp-surface-soft);
+      border-radius: 8px;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    .card-feed-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--cp-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .feed-item {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--cp-border);
+      font-size: 0.75rem;
+    }
+
+    .feed-item:last-child { border-bottom: none; }
+
+    .feed-item-time {
+      color: var(--cp-text-muted);
+      font-size: 0.65rem;
+      font-family: Consolas, "Courier New", Courier, monospace;
+    }
+
+    .feed-item-session {
+      color: var(--cp-accent);
+      font-weight: 500;
+      font-size: 0.7rem;
+    }
+
+    .feed-item-msg { color: var(--cp-text-soft); margin-top: 2px; }
+
+    .feed-icon {
+      display: inline-block;
+      width: 14px;
+      text-align: center;
+      margin-right: 4px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 20px;
+      text-align: center;
+      grid-column: 1 / -1;
+    }
+
+    .empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.5; }
+    .empty-title { font-size: 1.125rem; font-weight: 600; color: var(--cp-text); margin-bottom: 8px; }
+    .empty-desc { font-size: 0.875rem; color: var(--cp-text-muted); max-width: 400px; }
+
+    .error-banner {
+      grid-column: 1 / -1;
+      background: rgba(220, 38, 38, 0.08);
+      border: 1px solid var(--cp-danger);
+      border-radius: 0.625rem;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: var(--cp-danger);
+      display: none;
+    }
+
+    .theme-toggle {
+      background: var(--cp-surface);
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .theme-toggle:hover { border-color: var(--cp-accent); }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--cp-surface);
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      padding: 12px 20px;
+      box-shadow: var(--cp-shadow);
+      font-size: 0.85rem;
+      color: var(--cp-text);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    /* Token Chart */
+    .chart-panel {
+      background: var(--cp-surface);
+      border: 1px solid var(--cp-border);
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+    }
+
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .chart-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--cp-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .chart-toggles {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .chart-toggle-btn {
+      padding: 3px 10px;
+      border: 1px solid var(--cp-border);
+      border-radius: 12px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--cp-surface);
+      color: var(--cp-text-muted);
+    }
+
+    .chart-toggle-btn.active {
+      border-color: currentColor;
+      background: var(--cp-accent-soft);
+    }
+
+    .chart-toggle-btn:hover { border-color: var(--cp-accent); }
+
+    .chart-canvas-wrap {
+      position: relative;
+      width: 100%;
+      height: 160px;
+    }
+
+    .chart-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="header">
+      <div class="header-left">
+        <h1>🎛️ Agent Command Center</h1>
+        <span class="subtitle">Live Copilot CLI Sessions</span>
+      </div>
+      <div class="header-right">
+        <div class="refresh-indicator">
+          <div class="refresh-dot"></div>
+          <span>Auto-refresh 5s</span>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+      </div>
+    </div>
+
+    <div class="error-banner" id="errorBanner"></div>
+
+    <div class="stats-bar" id="statsBar">
+      <div class="stat-item">
+        <span class="stat-value" id="totalSessions">-</span>
+        <span class="stat-label">Active</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="workingSessions">-</span>
+        <span class="stat-label">Working</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="waitingSessions">-</span>
+        <span class="stat-label">Needs You</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="idleSessions">-</span>
+        <span class="stat-label">Idle</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="totalTokens">-</span>
+        <span class="stat-label">Total Tokens</span>
+      </div>
+    </div>
+
+    <div class="main-panel">
+      <div class="chart-panel" id="chartPanel">
+        <div class="chart-header">
+          <span class="chart-title">📈 Token Usage (per minute)</span>
+          <div class="chart-toggles" id="chartToggles"></div>
+        </div>
+        <div class="chart-canvas-wrap">
+          <canvas id="tokenChart"></canvas>
+        </div>
+      </div>
+      <div id="sessionsContainer" class="sessions-grid"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API_URL = "http://localhost:9876";
+    let lastData = null;
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute("data-theme");
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 3000);
+    }
+
+    function timeAgo(isoString) {
+      if (!isoString) return "unknown";
+      const now = new Date();
+      const then = new Date(isoString);
+      const diff = Math.floor((now - then) / 1000);
+      if (diff < 10) return "just now";
+      if (diff < 60) return `${diff}s ago`;
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return `${Math.floor(diff / 86400)}d ago`;
+    }
+
+    function formatTime(isoString) {
+      if (!isoString) return "";
+      try {
+        const d = new Date(isoString);
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      } catch { return ""; }
+    }
+
+    function shortenPath(path) {
+      if (!path) return "";
+      const parts = path.replace(/\\/g, "/").split("/");
+      if (parts.length <= 3) return path;
+      return "\u2026/" + parts.slice(-3).join("/");
+    }
+
+    function formatTokens(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+      if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+      return n.toString();
+    }
+
+    function escHtml(str) {
+      if (!str) return "";
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    async function openFolder(path) {
+      try {
+        await fetch(`${API_URL}/api/open-folder?path=${encodeURIComponent(path)}`);
+        showToast(`Opened: ${path.split("\\").pop()}`);
+      } catch { showToast("Failed to open folder"); }
+    }
+
+    async function killSession(pid, name) {
+      if (!confirm(`Kill session "${name}" (PID ${pid})?`)) return;
+      try {
+        const resp = await fetch(`${API_URL}/api/kill-session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pid })
+        });
+        const data = await resp.json();
+        if (data.ok) showToast(`Killed session (PID ${pid})`);
+        else showToast(`Error: ${data.error}`);
+      } catch { showToast("Failed to kill session"); }
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text);
+      showToast("Copied to clipboard");
+    }
+
+    async function focusTerminal(pid, name) {
+      try {
+        const resp = await fetch(`${API_URL}/api/focus-terminal`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pid })
+        });
+        const data = await resp.json();
+        if (!data.ok) showToast(`Could not focus terminal: ${data.error}`);
+      } catch { showToast("Failed to focus terminal"); }
+    }
+
+    function toggleCheckpoints(id) {
+      const el = document.getElementById(`cp-${id}`);
+      el.classList.toggle("open");
+    }
+
+    function renderSessions(data) {
+      const sessions = data.sessions || [];
+      const container = document.getElementById("sessionsContainer");
+
+      // Stats
+      document.getElementById("totalSessions").textContent = sessions.length;
+      document.getElementById("workingSessions").textContent = sessions.filter(s => s.status === "working").length;
+      document.getElementById("waitingSessions").textContent = sessions.filter(s => s.status === "waiting").length;
+      document.getElementById("idleSessions").textContent = sessions.filter(s => s.status === "idle").length;
+
+      const totalTok = sessions.reduce((sum, s) => {
+        const t = s.token_usage || {};
+        return sum + (t.input || 0) + (t.output || 0) + (t.cache_read || 0) + (t.cache_write || 0);
+      }, 0);
+      document.getElementById("totalTokens").textContent = formatTokens(totalTok);
+
+      // Sessions
+      if (sessions.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🖥️</div>
+            <div class="empty-title">No Active Sessions</div>
+            <div class="empty-desc">No Copilot CLI instances are currently running. Start one with <code>copilot</code> in a terminal.</div>
+          </div>`;
+        return;
+      }
+
+      // Sort: waiting first, then working, then idle
+      const order = { waiting: 0, working: 1, idle: 2, unknown: 3 };
+      sessions.sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3));
+
+      container.innerHTML = sessions.map(s => {
+        const tok = s.token_usage || {};
+        const totalSessionTokens = (tok.input||0) + (tok.output||0) + (tok.cache_read||0) + (tok.cache_write||0);
+        const statusLabel = s.status === "waiting" ? "Needs You" : s.status === "working" ? "Working" : s.status === "idle" ? "Idle" : "Unknown";
+        const statusIcon = s.status === "waiting" ? "🔔" : "";
+        const feed = s.activity_feed || [];
+        const ctx = s.context_window;
+        const ctxPercent = ctx ? ctx.percent : 0;
+        const ctxColor = ctxPercent > 85 ? "var(--cp-danger)" : ctxPercent > 60 ? "var(--cp-warning)" : "var(--cp-success)";
+
+        return `
+        <div class="session-card" data-pid="${s.pid}" data-cwd="${escHtml(s.cwd)}" data-sid="${s.session_id}" data-name="${escHtml(s.name)}">
+          ${ctx ? `<div class="context-bar" title="Context: ${ctx.percent}% (${formatTokens(ctx.used)} / ${formatTokens(ctx.max)})">
+            <div class="context-bar-fill" style="width: ${ctxPercent}%; background: ${ctxColor};"></div>
+          </div>
+          <div class="context-bar-label">${ctx.percent}% CTX</div>` : ""}
+          <div class="card-header">
+            <div class="session-name">${escHtml(s.name)}</div>
+            <div class="status-badge status-${s.status}">
+              <div class="status-dot"></div>
+              ${statusIcon} ${statusLabel}
+            </div>
+          </div>
+
+          ${s.current_intent ? `<div class="intent-line">🎯 ${escHtml(s.current_intent)}</div>` : ""}
+
+          <div class="card-meta">
+            <div class="meta-row">
+              <span class="meta-label">📁</span>
+              <span class="meta-value path" title="${escHtml(s.cwd)}">${escHtml(shortenPath(s.cwd))}</span>
+            </div>
+            ${s.repository ? `<div class="meta-row"><span class="meta-label">📦</span><span class="repo-badge">${escHtml(s.repository)}${s.branch ? " @ " + escHtml(s.branch) : ""}</span></div>` : ""}
+            <div class="meta-row">
+              <span class="meta-label">🆔</span>
+              <span class="meta-value">${s.session_id.substring(0, 8)}… (PID ${s.pid})</span>
+            </div>
+          </div>
+
+          ${totalSessionTokens > 0 ? `
+          <div class="token-bar">
+            <span class="token-bar-title">Tokens</span>
+            <span class="token-item">↗️ <strong>${formatTokens(tok.input||0)}</strong> in</span>
+            <span class="token-item">↙️ <strong>${formatTokens(tok.output||0)}</strong> out</span>
+            <span class="token-item">📖 <strong>${formatTokens(tok.cache_read||0)}</strong> cached</span>
+          </div>` : ""}
+
+          ${feed.length > 0 ? `
+          <div class="card-feed">
+            <div class="card-feed-title">⚡ Recent Activity</div>
+            ${feed.slice(0, 8).map(e => {
+              const icon = e.type === "tools" ? "🔧" : e.type === "turn_complete" ? "✅" : e.type === "intent" ? "🎯" : "📝";
+              return `<div class="feed-item"><span class="feed-item-time">${formatTime(e.time)}</span> <span class="feed-icon">${icon}</span>${escHtml(e.message)}</div>`;
+            }).join("")}
+          </div>` : ""}
+
+          <div class="card-footer">
+            <div class="footer-stats">
+              <div class="footer-stat">💬 <strong>${s.turn_count}</strong> turns</div>
+              ${s.checkpoint_count > 0 ? `<div class="footer-stat">📍 <strong>${s.checkpoint_count}</strong> checkpts</div>` : ""}
+            </div>
+            <div class="time-ago">
+              ${s.status === "working" ? "⚡ Active now" : s.status === "waiting" ? "🔔 Waiting for you" : "Last: " + timeAgo(s.last_activity)}
+            </div>
+          </div>
+
+          ${s.checkpoints && s.checkpoints.length > 0 ? `
+          <div class="checkpoints-toggle" data-action="checkpoints" data-sid="${s.session_id}">
+            📍 View ${s.checkpoints.length} checkpoint(s) ▾
+          </div>
+          <div class="checkpoints-list" id="cp-${s.session_id}">
+            ${s.checkpoints.map(cp => `
+              <div class="checkpoint-item">
+                <span class="checkpoint-num">#${cp.number}</span>
+                <div>
+                  <div class="checkpoint-title">${escHtml(cp.title)}</div>
+                  ${cp.overview ? `<div class="checkpoint-overview">${escHtml(cp.overview)}</div>` : ""}
+                </div>
+              </div>
+            `).join("")}
+          </div>` : ""}
+
+          <div class="quick-actions">
+            <button class="action-btn" data-action="focus">🖥️ Focus</button>
+            <button class="action-btn" data-action="open-folder">📂 Open Folder</button>
+            <button class="action-btn" data-action="copy-id">📋 Copy ID</button>
+            <button class="action-btn danger" data-action="kill">⛔ Kill</button>
+          </div>
+        </div>`;
+      }).join("");
+
+      // Attach event listeners via delegation
+      container.querySelectorAll("[data-action]").forEach(el => {
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const card = el.closest(".session-card");
+          const pid = parseInt(card.dataset.pid);
+          const cwd = card.dataset.cwd;
+          const sid = card.dataset.sid;
+          const name = card.dataset.name;
+          const action = el.dataset.action;
+          if (action === "focus") focusTerminal(pid, name);
+          else if (action === "open-folder") openFolder(cwd);
+          else if (action === "copy-id") copyToClipboard(sid);
+          else if (action === "kill") killSession(pid, name);
+          else if (action === "checkpoints") toggleCheckpoints(el.dataset.sid);
+        });
+      });
+    }
+
+    // ===== Token Time-Series Chart =====
+    const chartSeries = [
+      { key: "total", label: "Total", color: "#fd8ea1", active: true },
+      { key: "input", label: "Input", color: "#4da6ff", active: true },
+      { key: "output", label: "Output", color: "#4ade80", active: true },
+      { key: "cache_read", label: "Cache Read", color: "#fbbf24", active: true },
+      { key: "cache_write", label: "Cache Write", color: "#a78bfa", active: true },
+    ];
+    let chartData = null;
+
+    function initChartToggles() {
+      const container = document.getElementById("chartToggles");
+      container.innerHTML = chartSeries.map((s, i) => `
+        <button class="chart-toggle-btn active" data-idx="${i}" style="color: ${s.color}; border-color: ${s.color};"
+                onclick="toggleChartSeries(${i})">${s.label}</button>
+      `).join("");
+    }
+
+    function toggleChartSeries(idx) {
+      chartSeries[idx].active = !chartSeries[idx].active;
+      const btn = document.querySelector(`.chart-toggle-btn[data-idx="${idx}"]`);
+      if (chartSeries[idx].active) {
+        btn.classList.add("active");
+        btn.style.borderColor = chartSeries[idx].color;
+      } else {
+        btn.classList.remove("active");
+        btn.style.borderColor = "";
+      }
+      drawChart();
+    }
+
+    function drawChart() {
+      if (!chartData || !chartData.minutes || chartData.minutes.length === 0) return;
+
+      const canvas = document.getElementById("tokenChart");
+      const wrap = canvas.parentElement;
+      const dpr = window.devicePixelRatio || 1;
+      const w = wrap.clientWidth;
+      const h = wrap.clientHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      const ctx = canvas.getContext("2d");
+      ctx.scale(dpr, dpr);
+
+      // Get theme colors from CSS variables
+      const style = getComputedStyle(document.documentElement);
+      const bgColor = style.getPropertyValue("--cp-surface-soft").trim();
+      const borderColor = style.getPropertyValue("--cp-border").trim();
+      const textMuted = style.getPropertyValue("--cp-text-muted").trim();
+
+      // Clear
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, w, h);
+
+      const pad = { top: 10, right: 12, bottom: 28, left: 56 };
+      const plotW = w - pad.left - pad.right;
+      const plotH = h - pad.top - pad.bottom;
+
+      // Find max value across active series
+      let maxVal = 0;
+      for (const s of chartSeries) {
+        if (!s.active) continue;
+        const arr = chartData.series[s.key];
+        if (arr) {
+          for (const v of arr) {
+            if (v > maxVal) maxVal = v;
+          }
+        }
+      }
+      if (maxVal === 0) maxVal = 1;
+
+      // Grid lines
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 0.5;
+      const gridLines = 4;
+      for (let i = 0; i <= gridLines; i++) {
+        const y = pad.top + (plotH * i / gridLines);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(pad.left + plotW, y);
+        ctx.stroke();
+
+        // Y-axis labels
+        const val = maxVal * (1 - i / gridLines);
+        ctx.fillStyle = textMuted;
+        ctx.font = "10px Consolas, monospace";
+        ctx.textAlign = "right";
+        ctx.fillText(formatTokens(Math.round(val)), pad.left - 6, y + 3);
+      }
+
+      // Time axis labels (show ~6-8 labels max)
+      const numMinutes = chartData.minutes.length;
+      const labelStep = Math.max(1, Math.floor(numMinutes / 7));
+      ctx.fillStyle = textMuted;
+      ctx.font = "9px Consolas, monospace";
+      ctx.textAlign = "center";
+      for (let i = 0; i < numMinutes; i += labelStep) {
+        const x = pad.left + (i / (numMinutes - 1 || 1)) * plotW;
+        const label = chartData.minutes[i].substring(11); // "HH:MM"
+        ctx.fillText(label, x, h - 6);
+      }
+
+      // Draw lines
+      for (const s of chartSeries) {
+        if (!s.active) continue;
+        const arr = chartData.series[s.key];
+        if (!arr || arr.length === 0) continue;
+
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = s.key === "total" ? 2 : 1.2;
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+
+        for (let i = 0; i < arr.length; i++) {
+          const x = pad.left + (i / (arr.length - 1 || 1)) * plotW;
+          const y = pad.top + plotH - (arr[i] / maxVal) * plotH;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    async function fetchTimeseries() {
+      try {
+        const resp = await fetch(`${API_URL}/api/token-timeseries`);
+        if (!resp.ok) return;
+        chartData = await resp.json();
+        drawChart();
+      } catch {}
+    }
+
+    initChartToggles();
+    window.addEventListener("resize", drawChart);
+
+    async function fetchSessions() {
+      try {
+        const resp = await fetch(`${API_URL}/api/sessions`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        lastData = data;
+        renderSessions(data);
+        document.getElementById("errorBanner").style.display = "none";
+      } catch (err) {
+        document.getElementById("errorBanner").textContent = `Cannot reach API at ${API_URL} — ${err.message}`;
+        document.getElementById("errorBanner").style.display = "block";
+        if (lastData) renderSessions(lastData);
+      }
+    }
+
+    fetchSessions();
+    fetchTimeseries();
+    setInterval(() => { fetchSessions(); fetchTimeseries(); }, 5000);
+  </script>
+</body>
+</html>
